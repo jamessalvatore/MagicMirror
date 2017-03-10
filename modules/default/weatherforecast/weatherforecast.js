@@ -217,52 +217,62 @@ Module.register("weatherforecast",{
 			return;
 		}
 
-		var url = this.config.apiBase + this.config.apiVersion + "/" + this.config.forecastEndpoint + this.getParams();
 		var self = this;
-		var retry = true;
 
-		var weatherRequest = new XMLHttpRequest();
-		weatherRequest.open("GET", url, true);
-		weatherRequest.onreadystatechange = function() {
-			if (this.readyState === 4) {
-				if (this.status === 200) {
-					self.processWeather(JSON.parse(this.response));
-				} else if (this.status === 401) {
-					self.updateDom(self.config.animationSpeed);
+		if (navigator.geolocation) {
+			var success = function(position) {
+				Log.log('GEOLOCATION PRESENT');
 
-					Log.error(self.name + ": Incorrect APPID.");
-					retry = true;
-				} else {
-					Log.error(self.name + ": Could not load weather.");
-				}
+				var url = self.config.apiBase + self.config.apiVersion + "/" + self.config.forecastEndpoint + self.getParams(position);
+				
+				var retry = true;
 
-				if (retry) {
-					self.scheduleUpdate((self.loaded) ? -1 : self.config.retryDelay);
-				}
-			}
-		};
-		weatherRequest.send();
+				var weatherRequest = new XMLHttpRequest();
+				weatherRequest.open("GET", url, true);
+				weatherRequest.onreadystatechange = function() {
+					if (this.readyState === 4) {
+						if (this.status === 200) {
+							self.processWeather(JSON.parse(this.response));
+						} else if (this.status === 401) {
+							self.updateDom(self.config.animationSpeed);
+
+							Log.error(self.name + ": Incorrect APPID.");
+							retry = true;
+						} else {
+							Log.error(self.name + ": Could not load weather.");
+						}
+
+						if (retry) {
+							self.scheduleUpdate((self.loaded) ? -1 : self.config.retryDelay);
+						}
+					}
+				};
+				weatherRequest.send();
+			};
+			var failure = function(error) {
+				Log.log('ERROR: Could not fetch geolocation');
+			};
+
+			navigator.geolocation.getCurrentPosition(success, failure, {enableHighAccuracy: true});
+
+		} else Log.log('GEOLOCATION NOT PRESENT');
 	},
 
 	/* getParams(compliments)
-	 * Generates an url with api parameters based on the config.
+	 * Generates an url with api parameters based on the config
+	 * and the geo-coordinates of the current user.
+	 *
+	 * @param {Object} position - Geolocation object returned from navigator.geolocation.getCurrentPosition
 	 *
 	 * return String - URL params.
 	 */
-	getParams: function() {
+	getParams: function(position) {
 		var params = "?";
-		if(this.config.locationID) {
-			params += "id=" + this.config.locationID;
-		} else if(this.config.location) {
-			params += "q=" + this.config.location;
-		} else if (this.firstEvent && this.firstEvent.geo) {
-			params += "lat=" + this.firstEvent.geo.lat + "&lon=" + this.firstEvent.geo.lon
-		} else if (this.firstEvent && this.firstEvent.location) {
-			params += "q=" + this.firstEvent.location;
-		} else {
-			this.hide(this.config.animationSpeed, {lockString:this.identifier});
-			return;
-		}
+
+		if (position.coords.latitude && position.coords.longitude) {
+			params += "&lat=" + position.coords.latitude;
+			params += "&lon=" + position.coords.longitude;
+		} else return;
 
 		params += "&units=" + this.config.units;
 		params += "&lang=" + this.config.lang;
@@ -283,6 +293,7 @@ Module.register("weatherforecast",{
 	 * argument data object - Weather information received form openweather.org.
 	 */
 	processWeather: function(data) {
+
 		this.fetchedLocatioName = data.city.name + ", " + data.city.country;
 
 		this.forecast = [];
