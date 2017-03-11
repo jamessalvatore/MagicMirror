@@ -166,7 +166,8 @@ Module.register("currentweather",{
 		}
 
 		if (!this.loaded) {
-			wrapper.innerHTML = this.translate("LOADING");
+			Log.log('NOT LOADED YET');
+			wrapper.innerHTML = "LOADING";
 			wrapper.className = "dimmed light small";
 			return wrapper;
 		}

@@ -9,7 +9,8 @@
 
 var defaultModules = [
 	"alert",
-	"calendar",
+	// "calendar",
+	"regimenqueue",
 	"clock",
 	"compliments",
 	"currentweather",
