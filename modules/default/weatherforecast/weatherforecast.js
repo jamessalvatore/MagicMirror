@@ -221,7 +221,6 @@ Module.register("weatherforecast",{
 
 		if (navigator.geolocation) {
 			var success = function(position) {
-				Log.log('GEOLOCATION PRESENT');
 
 				var url = self.config.apiBase + self.config.apiVersion + "/" + self.config.forecastEndpoint + self.getParams(position);
 				

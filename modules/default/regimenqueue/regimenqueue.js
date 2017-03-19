@@ -7,8 +7,8 @@ Module.register("regimenqueue", {
 	defaults: {
 		maximumEntries: 10,
 		maxTitleLength: 25,
-		updateInterval: 5000, // update every 30 min
-		animationSpeed: 2000,
+		updateInterval: 30 * 60 * 1000, // update every 30 min
+		animationSpeed: 1000,
 		fade: true,
 		fadePoint: 0.25,
 		initialLoadDelay: 0,
@@ -41,9 +41,15 @@ Module.register("regimenqueue", {
 
 		moment.locale(config.language); // set the locale (english)
 
-		this.regimenNotifications = null;
 		this.loaded = false;
+		this.currentTimerExpectedEnd = null;
+		this.regimenQueue = null;
+
 		this.scheduleUpdate(this.config.initialLoadDelay);
+
+		this.regimens = null;
+
+		this.waitingReports = 0;
 	},
 
 	// DOM generator for module (Override)
@@ -51,16 +57,16 @@ Module.register("regimenqueue", {
 
 		var wrapper = document.createElement('div');
 
-		if (!this.loaded) {
+		var self = this;
+
+		if (!self.loaded) {
 			wrapper.innerHTML = "LOADING";
 			wrapper.className = "small dimmed";
 			return wrapper;
 		}
 
 		Log.log('heres the regimenQueue');
-		Log.log(this.regimenQueue);
-
-		var self = this;
+		Log.log(self.regimenQueue);
 
 		var table = document.createElement('table');
 		table.className = 'small';
@@ -72,8 +78,19 @@ Module.register("regimenqueue", {
 			var titleWrapper = document.createElement('td');
 			var timeWrapper = document.createElement('td');
 
-			titleWrapper.innerHTML = self.shorten(currNotification.med_name, self.config.maxTitleLength);
-			timeWrapper.innerHTML = currNotification.date;
+			// titleWrapper.innerHTML = self.shorten(currNotification.med_name, self.config.maxTitleLength);
+			titleWrapper.innerHTML = currNotification.med_name;
+
+			var now = moment();
+
+			if (now.format('MM/DD/YYYY') === currNotification.date) {
+				timeWrapper.innerHTML = currNotification.time
+			} else {
+				var daysUntilNotification = Math.abs(now.diff(new Date(currNotification.date), 'days') - 1); 
+				// abs because diff is being calculated backwards. -1 bc date will be 0 offset
+				// 
+				timeWrapper.innerHTML =  daysUntilNotification + (daysUntilNotification > 1 ? ' Days' : ' Day');
+			}
 
 			titleWrapper.className = "title";
 			timeWrapper.className = "time bright";
@@ -84,11 +101,11 @@ Module.register("regimenqueue", {
 			table.appendChild(row);
 
 			// Create fade effect.
-			if (this.config.fade && this.config.fadePoint < 1) {
-				if (this.config.fadePoint < 0) {
-					this.config.fadePoint = 0;
+			if (self.config.fade && self.config.fadePoint < 1) {
+				if (self.config.fadePoint < 0) {
+					self.config.fadePoint = 0;
 				}
-				var startingPoint = (self.regimenQueue.length < self.config.maximumEntries ? self.regimenQueue.length : self.config.maximumEntries) * this.config.fadePoint;
+				var startingPoint = (self.regimenQueue.length < self.config.maximumEntries ? self.regimenQueue.length : self.config.maximumEntries) * self.config.fadePoint;
 				var steps = (self.regimenQueue.length < self.config.maximumEntries ? self.regimenQueue.length : self.config.maximumEntries) - startingPoint;
 				if (i >= startingPoint) {
 					var currentStep = i - startingPoint;
@@ -101,12 +118,27 @@ Module.register("regimenqueue", {
 	},
 
 	scheduleUpdate: function(delay) {
-		var nextLoad = this.config.updateInterval; // 30 min
+		var self = this;
+
+		console.log('DELAY IS');
+		console.log(delay);
+
+		var nextLoad = self.config.updateInterval; // 30 min
 		if (typeof delay !== "undefined" && delay >= 0) {
 			nextLoad = delay;
 		}
 
-		var self = this;
+		console.log('NEXT LOAD');
+		console.log(nextLoad);
+
+		var expectedEnd = new Date(Date.now() + nextLoad);
+		
+		self.currentTimerExpectedEnd = expectedEnd;
+
+		console.log('EXPECTED UPDATE TIME');
+		console.log(expectedEnd);
+		console.log(self.currentTimerExpectedEnd);
+
 		setTimeout(function() {
 			self.updateRegimen(); // updateRegimen
 		}, nextLoad);
@@ -117,7 +149,8 @@ Module.register("regimenqueue", {
 		var self = this;
 
 		var url = 'modules/default/regimenqueue/tests/sample_regimens.json';
-		var retry = true;
+
+		var retry = false;
 
 		var regimenRequest = new XMLHttpRequest();
 		regimenRequest.open("GET", url, true);
@@ -142,15 +175,51 @@ Module.register("regimenqueue", {
 		regimenRequest.send();
 	},
 
-	getNearestDate: function() {
-		var latest_date = null;
+	notificationReceived: function(notification, payload, sender) {
+		var self = this;
 
-		for (var key in this.regimenNotifications) {
-			if (!latest_date) latest_date = key;
-			else if (new Date(key) < new Date(latest_date)) latest_date = key;
+		if (notification === 'REGIMEN_QUEUE_POP') {
+			// payload is 'YES' or 'NO' or 'MISS'
+			var reg_notification = self.regimenQueue.shift();
+			// console.log(self.regimenQueue);
+			var now = new Date();
+			console.log('NOW MINUS EXPECTED DOM REFRESH');
+			console.log(self.currentTimerExpectedEnd - now);
+
+			if (self.currentTimerExpectedEnd - now < 10000) {
+				console.log('10 seconds from updating anyway');
+				self.waitingReports++;
+				setTimeout(function() {self.updateReports(reg_notification, payload);}, (self.waitingReports * 10000));
+			} else {
+				self.updateDom();
+				self.updateReports(reg_notification, payload);
+			}
+
+		}
+	},
+
+	updateReports: function(reg_notification, response) {
+		var self = this;
+
+		console.log('notificaiton instance to report on');
+		console.log(reg_notification);
+		console.log(response);
+
+		if (response === 'YES') {
+			console.log('response is yes');
+		} else if (response === 'NO') {
+			console.log('response is no');
+		} else if (response === 'MISS') {
+			console.log('response is miss')
+			self.sendNotification('MISSED_REGIMEN', reg_notification);
 		}
 
-		return latest_date;
+		// go to the corresponding regimen index of self.regimens
+		// go into the reports field of that
+		// find the matching medication-date-time
+		// overwrite it with the corresponding response stamp
+
+		// self.waitingReports--
 	},
 
 	processRegimens: function(data) {
@@ -158,28 +227,31 @@ Module.register("regimenqueue", {
 		// with all regimen instances that have a timeslots for that day (values)
 		if (!data.regimens) return;
 
+		var self = this;
 		var regimenQueue = [];
-		var patientRegimens = data.regimens;
 
-		// fill map keyset with each date and 
-		for (var i = 0; i < patientRegimens.length; i++) {
-			var reg_date_time_combos = patientRegimens[i].date_time_combos;
+		self.regimens = data.regimens;
 
-			for (var j = 0; j < reg_date_time_combos.length; j++) {
-				var curr_date_time_combo = reg_date_time_combos[j].split(" ");
-				var curr_date = curr_date_time_combo.shift();   // remove head element from list anzd store it
-				if (new Date(curr_date) < new Date()) continue; // skip past dates in the regimen
+		for (var i = 0; i < self.regimens.length; i++) {
+			var reg_date_time_combos = self.regimens[i].date_time_combos;
 
-				for (var k = 0; k < curr_date_time_combo.length; k++) {     // remainder of the list will just be the times for that date
+			for (var key in reg_date_time_combos) {
+				if (!reg_date_time_combos.hasOwnProperty(key)) continue;
+
+				var curr_date = key;
+				console.log(new Date(curr_date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0));
+				if (new Date(curr_date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)) continue;
+
+				var timeslots = reg_date_time_combos[key];
+				for (var j = 0; j < timeslots.length; j++) {
 					var reg_notification = new Object();
-					reg_notification.med_name  = patientRegimens[i].med_name;
+					reg_notification.med_name  = self.regimens[i].med_name;
 					reg_notification.date      = curr_date;
-					reg_notification.time      = curr_date_time_combo[k];
+					reg_notification.time      = timeslots[j];
 					reg_notification.reg_index =  i;
 
 					regimenQueue.push(reg_notification);
 				}
-
 			}
 		}
 
@@ -191,9 +263,12 @@ Module.register("regimenqueue", {
 		});
 
 		this.regimenQueue = regimenQueue;
-		// might need to do this.show() -> see currrentweather
+		console.log('REGIMEN QUEUE AFTER CREATION');
+		console.log(regimenQueue);
+		this.sendNotification('REGIMEN_QUEUE_CREATED', {data : regimenQueue});
 		this.loaded = true;
 		this.updateDom(this.config.animationSpeed);
+		this.scheduleUpdate();
 	},
 
 	/* shorten(string, maxLength)

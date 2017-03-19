@@ -12,12 +12,13 @@ var defaultModules = [
 	// "calendar",
 	"regimenqueue",
 	"clock",
-	"compliments",
+	"regimennotification",
 	"currentweather",
 	"helloworld",
 	"newsfeed",
 	"weatherforecast",
-	"updatenotification"
+	"updatenotification",
+	"missedregimens"
 ];
 
 /*************** DO NOT EDIT THE LINE BELOW ***************/

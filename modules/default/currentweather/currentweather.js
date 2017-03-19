@@ -240,11 +240,10 @@ Module.register("currentweather",{
 
 		if (navigator.geolocation) {
 			var success = function(position) {
-				Log.log('GEOLOCATION PRESENT');
 
 				var url = self.config.apiBase + self.config.apiVersion + "/" + self.config.weatherEndpoint + self.getParams(position);
 				
-				var retry = true;
+				var retry = false;
 
 				var weatherRequest = new XMLHttpRequest();
 				weatherRequest.open("GET", url, true);
