@@ -240,10 +240,23 @@ Module.register("regimenqueue", {
 
 				var curr_date = key;
 				console.log(new Date(curr_date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0));
+				// skip the date if it already occured
 				if (new Date(curr_date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)) continue;
 
 				var timeslots = reg_date_time_combos[key];
 				for (var j = 0; j < timeslots.length; j++) {
+
+					var notificationTime_split = timeslots[j].split(":");
+
+					var hour = parseInt(notificationTime_split[0]);
+					var minutes = parseInt(notificationTime_split[1].substring(0,2));
+					var period = notificationTime_split[1].substring(2,4);
+
+					if (period === 'am' && hour === 12) hour = 0;
+					else if (period === 'pm' && hour !== 12) hour += 12;
+
+					if (new Date(curr_date).setHours(hour, minutes) < new Date()) continue;
+
 					var reg_notification = new Object();
 					reg_notification.med_name  = self.regimens[i].med_name;
 					reg_notification.date      = curr_date;
