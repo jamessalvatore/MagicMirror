@@ -26,8 +26,8 @@ var config = {
 		},
 		{
 			module: 'regimenqueue', // calendar
-			header: 'Upcoming Notifications',
-			position: 'top_left',
+			// header: 'Upcoming Notifications',
+			position: 'top_left'
 			// config: {
 			// 	calendars: [
 			// 		{
@@ -72,6 +72,14 @@ var config = {
 				roundTemp: true
 			}
 		},
+
+		{
+	        module: 'MMM-Hello-Mirror',
+	        position: 'lower_third',
+	        config: {
+	            // See 'Configuration options' for more information.
+	        }
+	    }
 		// {
 		// 	module: 'newsfeed',
 		// 	position: 'bottom_bar',
@@ -86,18 +94,18 @@ var config = {
 		// 		showPublishDate: true
 		// 	}
 		// },
-		{
-			module: 'MMM-alexa',
-			position: 'top_right', // The status indicator position
-			config: {
-			    // See 'Configuration options' for more information.
-			    avsDeviceId: 'MagicMirror',
-			    avsClientId: 'amzn1.application-oa2-client.23f9edad554f4a02855d4b460d447732',
-			    avsClientSecret: '597c7ae521ec68e38b3fc12e0a801ba6d22180ab3d6027119127c3d369496e8a',
-			    avsInitialCode: 'ANYUEusqGItIdZkyWALw'
-			    // enableRaspberryButton: true
-			}
-		}
+		// {
+		// 	module: 'MMM-alexa',
+		// 	position: 'top_right', // The status indicator position
+		// 	config: {
+		// 	    // See 'Configuration options' for more information.
+		// 	    avsDeviceId: 'MagicMirror',
+		// 	    avsClientId: 'amzn1.application-oa2-client.23f9edad554f4a02855d4b460d447732',
+		// 	    avsClientSecret: '597c7ae521ec68e38b3fc12e0a801ba6d22180ab3d6027119127c3d369496e8a',
+		// 	    avsInitialCode: 'ANYUEusqGItIdZkyWALw'
+		// 	    // enableRaspberryButton: true
+		// 	}
+		// }
 	],
 
 	electronOptions: {width: 1080, height: 1920, fullscreen: false}

@@ -11,6 +11,7 @@ Module.register("missedregimens", {
 		fade: true,
 		fadePoint: 0.25,
 		initialLoadDelay: 0,
+		expirationTime: 10 * 60 * 1000 // 12 hrs
 	},
 
 	// getHeader: function() {
@@ -20,10 +21,6 @@ Module.register("missedregimens", {
 	// required modules scripts
 	getScripts: function() {
 		return ["moment.js"]
-	},
-
-	getStyles: function() {
-		return ["missedregimens.css"];
 	},
 
 	// module-specific start method (Override)
@@ -52,7 +49,7 @@ Module.register("missedregimens", {
 			table.className = 'small';
 
 			for (var i = 0; i < self.missedRegimens.length; i++) {
-				var currMissed = self.missedRegimens[i];
+				var currMissed = self.missedRegimens[i].notification;
 
 				var row = document.createElement('tr');
 				var titleWrapper = document.createElement('td');
@@ -86,20 +83,59 @@ Module.register("missedregimens", {
 		return wrapper;
 	},
 
+	removeExpiredMissedRegimen: function(missed) {
+		console.log('REMOVING EXPIRED REGIMEN');
+		var self = this;
+
+		for (var i = 0; i < self.missedRegimens.length; i++) {
+			if (self.missedRegimens[i].notification === missed) {
+				console.log(missed);
+				var missed_notif = self.missedRegimens.splice(i, 1)[0].notification;  					  // remove the missed regimen instance
+				console.log(self.missedRegimens);
+
+				if (self.missedRegimens.length === 0) self.missedRegimens = null;
+				self.updateDom(self.config.animationSpeed);
+				self.sendNotification('MISSED_REGIMEN_AMEND', {notification: missed_notif, response: 'MISSC'});
+				return;
+			}
+		}
+	},
+
 	notificationReceived(notification, payload, sender) {
 		var self = this;
 
-		if (notification === 'MISSED_REGIMEN') {
+		if (notification === 'NEW_MISSED_REGIMEN') {
 			if (!self.missedRegimens) self.missedRegimens = [];
 
-			self.missedRegimens.push(payload);
-			self.updateDom();
+			var missedInstance = {
+				notification: payload.notification,
+				expirationTimer: setTimeout(function(){
+					self.removeExpiredMissedRegimen(payload.notification);
+				}, self.config.expirationTime) // change to expirationTime eventually
+			};
+
+			self.missedRegimens.push(missedInstance);
+			self.updateDom(self.config.animationSpeed);
 		}
 
-		if (notification === 'VOICE_COMMAND') {
-			if (payload.data === 'SHOW MISSED REGIMENS') {
+		else if (notification === 'VOICE_COMMAND') {
+			if (payload.command === 'VIEW MISSED REGIMEN') {
 				// send notification to regimenNotification ('DISPLAY_MISSED_REGIMEN')
+				if (self.missedRegimens && self.missedRegimens.length > 0) {
+					clearTimeout(self.missedRegimens[0].expirationTimer); // clear the timer
+					self.sendNotification('DISPLAY_MISSED_REGIMEN', {notification: self.missedRegimens[0].notification})
+				}
 			}
+		}
+
+		else if (notification === 'MISSED_REGIMEN_POP') {
+			console.log('POPPING MISSED REGIMEN');
+			var missed_notif = self.missedRegimens.shift();
+			payload['notification'] = missed_notif.notification; // add the regimen to update to the payload
+
+			if (self.missedRegimens.length === 0) self.missedRegimens = null;
+			self.updateDom(self.config.animationSpeed);
+			self.sendNotification('MISSED_REGIMEN_AMEND', payload); // keep payload from params -> contains the response & response time
 		}
 
 	},

@@ -21,9 +21,9 @@ Module.register("regimenqueue", {
 	// 	return ["regimenqueue.css"] // maybe add fontawesome.css
 	// },
 
-	getHeader: function() {
-		return this.data.header;
-	},
+	// getHeader: function() {
+	// 	return this.data.header;
+	// },
 
 	// required modules scripts
 	getScripts: function() {
@@ -59,11 +59,17 @@ Module.register("regimenqueue", {
 
 		var self = this;
 
-		if (!self.loaded) {
-			wrapper.innerHTML = "LOADING";
-			wrapper.className = "small dimmed";
-			return wrapper;
-		}
+		// if (!self.loaded) {
+		// 	wrapper.innerHTML = "LOADING";
+		// 	wrapper.className = "small dimmed";
+		// 	return wrapper;
+		// }
+
+		if (!self.regimenQueue) return wrapper;
+
+		var header = document.createElement('header');
+		header.className = 'header-small';
+		header.innerHTML = 'Upcoming Notifications';
 
 		Log.log('heres the regimenQueue');
 		Log.log(self.regimenQueue);
@@ -114,22 +120,25 @@ Module.register("regimenqueue", {
 			}
 		}
 
-		return table;
+		wrapper.appendChild(header);
+		wrapper.appendChild(table);
+
+		return wrapper;
 	},
 
 	scheduleUpdate: function(delay) {
 		var self = this;
 
-		console.log('DELAY IS');
-		console.log(delay);
+		// console.log('DELAY IS');
+		// console.log(delay);
 
 		var nextLoad = self.config.updateInterval; // 30 min
 		if (typeof delay !== "undefined" && delay >= 0) {
 			nextLoad = delay;
 		}
 
-		console.log('NEXT LOAD');
-		console.log(nextLoad);
+		// console.log('NEXT LOAD');
+		// console.log(nextLoad);
 
 		var expectedEnd = new Date(Date.now() + nextLoad);
 		
@@ -179,47 +188,72 @@ Module.register("regimenqueue", {
 		var self = this;
 
 		if (notification === 'REGIMEN_QUEUE_POP') {
-			// payload is 'YES' or 'NO' or 'MISS'
 			var reg_notification = self.regimenQueue.shift();
-			// console.log(self.regimenQueue);
-			var now = new Date();
-			console.log('NOW MINUS EXPECTED DOM REFRESH');
-			console.log(self.currentTimerExpectedEnd - now);
+			payload['notification'] = reg_notification;
 
-			if (self.currentTimerExpectedEnd - now < 10000) {
-				console.log('10 seconds from updating anyway');
-				self.waitingReports++;
-				setTimeout(function() {self.updateReports(reg_notification, payload);}, (self.waitingReports * 10000));
-			} else {
-				self.updateDom();
-				self.updateReports(reg_notification, payload);
-			}
+			if (self.regimenQueue.length === 0) self.regimenQueue = null;
+			if (payload.response === 'MISST') self.sendNotification('NEW_MISSED_REGIMEN', {notification: payload.notification});
 
+			self.updateDom(self.config.animationSpeed);
+			self.attemptUpdate(payload);
+
+		}
+
+		else if (notification === 'MISSED_REGIMEN_AMEND') {
+			// need to make sure no other report updates are in progress (partially implemented below)
+			self.updateReports(payload);
 		}
 	},
 
-	updateReports: function(reg_notification, response) {
+	attemptUpdate: function(data) {
+		var self = this;
+		self.waitingReports++;
+
+		if (self.currentTimerExpectedEnd - data.response_time < 10000) {
+			setTimeout(function() {
+				self.updateReports(data); // self.waitingReports-- would occur in the callback (in updateReports not here)
+			}, (self.waitingReports * 20000));
+		} else {
+			self.updateReports(data); // self.waitingReports-- would occur in the callback
+		}
+	},
+
+	updateReports: function(data) {
+		// contents of data (payload):
+		// ----------------------------
+		// response: YES/NO/MISS/IGNORE
+		// notification: notification object from either regimenqueue or missedregimens
+		// (optional) time: i.e. 8:15pm
+		// ----------------------------
+
 		var self = this;
 
 		console.log('notificaiton instance to report on');
-		console.log(reg_notification);
-		console.log(response);
+		console.log(data);
+		console.log(data.notification);
+		console.log(data.response);
 
-		if (response === 'YES') {
-			console.log('response is yes');
-		} else if (response === 'NO') {
-			console.log('response is no');
-		} else if (response === 'MISS') {
-			console.log('response is miss')
-			self.sendNotification('MISSED_REGIMEN', reg_notification);
+		var regimenToUpdate = self.regimens[data.notification.reg_index];
+		console.log(regimenToUpdate);
+
+		var timeCombosToSearch = regimenToUpdate.responses[data.notification.date];
+		console.log(timeCombosToSearch);
+
+		for (var i = 0; i < timeCombosToSearch.length; i++) {
+			var currTimeResponse = timeCombosToSearch[i].split('-');
+			if (currTimeResponse[0] === data.notification.time) {
+				var updatedResponse;
+				if (data.response === 'MISST' || data.response === 'MISSC') {
+					updatedResponse = [currTimeResponse[0], data.response];
+				} else {
+					updatedResponse = [currTimeResponse[0], data.response_time, data.response];
+				}
+				timeCombosToSearch[i] = updatedResponse.join('-');
+				// some database command
+				console.log(self.regimens);
+				return;
+			}	
 		}
-
-		// go to the corresponding regimen index of self.regimens
-		// go into the reports field of that
-		// find the matching medication-date-time
-		// overwrite it with the corresponding response stamp
-
-		// self.waitingReports--
 	},
 
 	processRegimens: function(data) {
@@ -228,7 +262,7 @@ Module.register("regimenqueue", {
 		if (!data.regimens) return;
 
 		var self = this;
-		var regimenQueue = [];
+		var regimenQueue;
 
 		self.regimens = data.regimens;
 
@@ -239,41 +273,38 @@ Module.register("regimenqueue", {
 				if (!reg_date_time_combos.hasOwnProperty(key)) continue;
 
 				var curr_date = key;
-				console.log(new Date(curr_date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0));
+				// console.log(new Date(curr_date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0));
 				// skip the date if it already occured
 				if (new Date(curr_date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)) continue;
 
 				var timeslots = reg_date_time_combos[key];
 				for (var j = 0; j < timeslots.length; j++) {
 
-					var notificationTime_split = timeslots[j].split(":");
+					var timeslotFormatted = self.processTimeslot(timeslots[j]); // array -> [hour, minutes]
 
-					var hour = parseInt(notificationTime_split[0]);
-					var minutes = parseInt(notificationTime_split[1].substring(0,2));
-					var period = notificationTime_split[1].substring(2,4);
-
-					if (period === 'am' && hour === 12) hour = 0;
-					else if (period === 'pm' && hour !== 12) hour += 12;
-
-					if (new Date(curr_date).setHours(hour, minutes) < new Date()) continue;
+					if (new Date(curr_date).setHours(timeslotFormatted[0], timeslotFormatted[1]) < new Date()) continue;
 
 					var reg_notification = new Object();
-					reg_notification.med_name  = self.regimens[i].med_name;
-					reg_notification.date      = curr_date;
-					reg_notification.time      = timeslots[j];
-					reg_notification.reg_index =  i;
+					reg_notification.med_name     = self.regimens[i].med_name;
+					reg_notification.date         = curr_date;
+					reg_notification.time         = timeslots[j];
+					reg_notification.instructions = self.regimens[i].dosage_instructions;
+					reg_notification.reg_index    =  i;
 
+					if (!regimenQueue) regimenQueue = [];
 					regimenQueue.push(reg_notification);
 				}
 			}
 		}
 
-		regimenQueue.sort(function(a,b) {
-			// add extra space between the time and time-period (9:00am -> 9:00 am) in order to satisfy Date constructor
-			var a_time_formatted = a.time.slice(0, a.time.length-2) + ' ' + a.time.slice(a.time.length-2);
-			var b_time_formatted = b.time.slice(0, b.time.length-2) + ' ' + b.time.slice(b.time.length-2);
-			return new Date(a.date + ' ' + a_time_formatted) - new Date(b.date + ' ' + b_time_formatted);
-		});
+		if (regimenQueue) {
+			regimenQueue.sort(function(a,b) {
+				// add extra space between the time and time-period (9:00am -> 9:00 am) in order to satisfy Date constructor
+				var a_time_formatted = a.time.slice(0, a.time.length-2) + ' ' + a.time.slice(a.time.length-2);
+				var b_time_formatted = b.time.slice(0, b.time.length-2) + ' ' + b.time.slice(b.time.length-2);
+				return new Date(a.date + ' ' + a_time_formatted) - new Date(b.date + ' ' + b_time_formatted);
+			});
+		}
 
 		this.regimenQueue = regimenQueue;
 		console.log('REGIMEN QUEUE AFTER CREATION');
@@ -282,6 +313,19 @@ Module.register("regimenqueue", {
 		this.loaded = true;
 		this.updateDom(this.config.animationSpeed);
 		this.scheduleUpdate();
+	},
+
+	processTimeslot: function(timeslotStr) {
+		var notificationTime_split = timeslotStr.split(":");
+
+		var hour = parseInt(notificationTime_split[0]);
+		var minutes = parseInt(notificationTime_split[1].substring(0,2));
+		var period = notificationTime_split[1].substring(2,4);
+
+		if (period === 'am' && hour === 12) hour = 0;
+		else if (period === 'pm' && hour !== 12) hour += 12;
+
+		return [hour, minutes];
 	},
 
 	/* shorten(string, maxLength)
@@ -299,6 +343,6 @@ Module.register("regimenqueue", {
 		}
 
 		return string;
-	},
+	}
 
 });
