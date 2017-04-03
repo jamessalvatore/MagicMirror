@@ -236,24 +236,31 @@ Module.register("regimenqueue", {
 		var regimenToUpdate = self.regimens[data.notification.reg_index];
 		console.log(regimenToUpdate);
 
-		var timeCombosToSearch = regimenToUpdate.responses[data.notification.date];
-		console.log(timeCombosToSearch);
+		if (regimenToUpdate.responses.hasOwnProperty(data.notification.date)) {
+			console.log('DATE FOUND');
+			var timeCombosToSearch = regimenToUpdate.responses[data.notification.date];
+			console.log(timeCombosToSearch);
 
-		for (var i = 0; i < timeCombosToSearch.length; i++) {
-			var currTimeResponse = timeCombosToSearch[i].split('-');
-			if (currTimeResponse[0] === data.notification.time) {
-				var updatedResponse;
-				if (data.response === 'MISST' || data.response === 'MISSC') {
-					updatedResponse = [currTimeResponse[0], data.response];
-				} else {
-					updatedResponse = [currTimeResponse[0], data.response_time, data.response];
-				}
-				timeCombosToSearch[i] = updatedResponse.join('-');
-				// some database command
-				console.log(self.regimens);
-				return;
-			}	
+			for (var i = 0; i < timeCombosToSearch.length; i++) {
+				var currTimeResponse = timeCombosToSearch[i].split('-');
+				if (currTimeResponse[0] === data.notification.time) {
+					var updatedResponse;
+					if (data.response === 'MISST' || data.response === 'MISSP') {
+						updatedResponse = [currTimeResponse[0], data.response];
+					} else {
+						updatedResponse = [currTimeResponse[0], data.response_time, data.response];
+					}
+					timeCombosToSearch[i] = updatedResponse.join('-');
+					// some database command
+					console.log(self.regimens);
+					return;
+				}	
+			}
+		} else {
+			console.log('DATE NOT FOUND');
 		}
+
+		
 	},
 
 	processRegimens: function(data) {
@@ -267,6 +274,7 @@ Module.register("regimenqueue", {
 		self.regimens = data.regimens;
 
 		for (var i = 0; i < self.regimens.length; i++) {
+			if (new Date(self.regimens[i].end_date).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)) continue;
 			var reg_date_time_combos = self.regimens[i].date_time_combos;
 
 			for (var key in reg_date_time_combos) {

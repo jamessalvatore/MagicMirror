@@ -11,7 +11,7 @@ Module.register("missedregimens", {
 		fade: true,
 		fadePoint: 0.25,
 		initialLoadDelay: 0,
-		expirationTime: 10 * 60 * 1000 // 12 hrs
+		expirationLength: 10 * 60 * 1000 // 12 hrs
 	},
 
 	// getHeader: function() {
@@ -53,11 +53,16 @@ Module.register("missedregimens", {
 
 				var row = document.createElement('tr');
 				var titleWrapper = document.createElement('td');
+				var expirationDateWrapper = document.createElement('td');
 
 				titleWrapper.innerHTML = currMissed.med_name;
 				titleWrapper.className = 'title';
 
+				expirationDateWrapper.innerHTML = self.missedRegimens[i].expirationDate.format('h:mma');
+				expirationDateWrapper.className = 'bright';
+
 				row.appendChild(titleWrapper);
+				row.appendChild(expirationDateWrapper);
 
 				table.appendChild(row);
 
@@ -95,7 +100,7 @@ Module.register("missedregimens", {
 
 				if (self.missedRegimens.length === 0) self.missedRegimens = null;
 				self.updateDom(self.config.animationSpeed);
-				self.sendNotification('MISSED_REGIMEN_AMEND', {notification: missed_notif, response: 'MISSC'});
+				self.sendNotification('MISSED_REGIMEN_AMEND', {notification: missed_notif, response: 'MISSP'});
 				return;
 			}
 		}
@@ -107,11 +112,15 @@ Module.register("missedregimens", {
 		if (notification === 'NEW_MISSED_REGIMEN') {
 			if (!self.missedRegimens) self.missedRegimens = [];
 
+			// var now = moment();
+			// now.add(12, 'hour');
+
 			var missedInstance = {
 				notification: payload.notification,
 				expirationTimer: setTimeout(function(){
 					self.removeExpiredMissedRegimen(payload.notification);
-				}, self.config.expirationTime) // change to expirationTime eventually
+				}, self.config.expirationLength), // change to expirationLength eventually
+				expirationDate: moment().add(12, 'hour')
 			};
 
 			self.missedRegimens.push(missedInstance);

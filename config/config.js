@@ -73,12 +73,23 @@ var config = {
 			}
 		},
 
-		{
-	        module: 'MMM-Hello-Mirror',
-	        position: 'lower_third',
-	        config: {
-	            // See 'Configuration options' for more information.
-	        }
+		// {
+	 //        module: 'MMM-Hello-Mirror',
+	 //        position: 'lower_third',
+	 //        config: {
+	 //            // See 'Configuration options' for more information.
+	 //        }
+	 //    },
+
+	    {
+	    	module: 'MMM-MirrorMirrorOnTheWall',
+	    	position: 'middle_center',
+	    	config: {}
+	    },
+
+	    {
+	    	module:'MMM-Sounds',
+	    	config: {debug: true}
 	    }
 		// {
 		// 	module: 'newsfeed',

@@ -73,7 +73,7 @@ Module.register("regimennotification", {
 
 							self.sendNotification('MISSED_REGIMEN_POP', payloadToSend);
 							self.missedNotificationDisplayed = false;
-							self.notificationDisplayed = false;
+							self.checkRegimenNotifications(self);
 						}, {lockString: self.identifier});
 					} else {
 						self.displayTimeInput = true;
@@ -116,9 +116,9 @@ Module.register("regimennotification", {
 					self.hide(self.config.animationSpeed, function(){
 						self.sendNotification('MISSED_REGIMEN_POP', {response: 'YES', response_time: self.timeInputVal});
 						self.missedNotificationDisplayed = false;
-						self.notificationDisplayed = false;
 						self.displayTimeInput = false;
 						self.timeInputVal = null;
+						self.checkRegimenNotifications(self);
 					}, {lockString: self.identifier});
 				}
 			}
@@ -172,19 +172,25 @@ Module.register("regimennotification", {
 						// console.log(regNotif);
 						// console.log('time in ms until its ready');
 						// console.log(millisecondOffset);
+
+						if (millisecondOffset > 5 * 61 * 1000) { // buy it an extra second (61)
+							setTimeout(function() {
+								self.sendNotification('SHOW_ALERT', {type: 'notification', title: 'Upcoming Notification in 5 minutes', message: 'Medication: ' + regNotif.med_name});
+								// self.sendNotification('PLAY_SOUND', {sound: 'Ceres.wav', delay: 1000});
+							}, (millisecondOffset + 1000) - 5 * 60 * 1000);
+						}
+
 						setTimeout(function() {
 							if(!self.regimenNotifications) self.regimenNotifications = [];
 							self.regimenNotifications.push(regNotif);
-							// console.log('PUSHING TO DISPLAY QUEUE');
-							// console.log(regNotif);
-							// console.log(self.regimenNotifications);
-							// self.displayRegimenNotification();
 							if (!self.notificationDisplayed) {
 								self.notificationDisplayed = true;
 								self.displayRegimenNotification();
 							}
-						}, 1000); // millisecondOffset + 1000 (add 1000 to compensate for clock delay)
+						}, 2000); // millisecondOffset + 1000 (add 1000 to compensate for clock delay)
 					})(regQueue[i]);
+
+					
 
 					// console.log('THIS TIMESTAMP IS ' + Math.floor((notificationDate.getTime() - now.getTime()) / 60000) + ' minutes away');
 				}
@@ -409,6 +415,8 @@ Module.register("regimennotification", {
 		// no notification currently being displayed, so we can now display one
 		// if (!self.loaded) self.loaded = true;
 		// self.hidden = false; // by-pass here ... show doesnt want to animate for some raisin
+
+		// self.sendNotification('PLAY_SOUND', {sound: 'Rhea.wav', delay: 1000});
 		self.updateDom();
 		self.show(0, {lockString: self.identifier});
 
@@ -431,11 +439,11 @@ Module.register("regimennotification", {
 			self.hide(self.config.animationSpeed, function(){
 				if (self.missedNotificationDisplayed) {
 					self.missedNotificationDisplayed = false;
-					self.notificationDisplayed = false;
 					self.displayTimeInput = false;
 					self.timeInputVal = null;
 						
-					self.sendNotification('MISSED_REGIMEN_POP', {response: 'MISSC'});
+					self.sendNotification('MISSED_REGIMEN_POP', {response: 'MISSP'});
+					self.checkRegimenNotifications(self);
 				}
 				else {
 					self.sendNotification('REGIMEN_QUEUE_POP', {response: 'MISST'});

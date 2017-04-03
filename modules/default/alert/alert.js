@@ -14,7 +14,7 @@ Module.register("alert",{
 		// scale|slide|genie|jelly|flip|bouncyflip|exploader
 		alert_effect: "jelly",
 		//time a notification is displayed in seconds
-		display_time: 3500,
+		display_time: 5000,
 		//Position
 		position: "center",
 		//shown at startup
